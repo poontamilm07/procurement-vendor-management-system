@@ -1,53 +1,60 @@
 package com.procurement.procurement.controller.procurement;
 
-import com.procurement.procurement.dto.procurement.PurchaseOrderRequestDTO;
-import com.procurement.procurement.dto.procurement.PurchaseOrderResponseDTO;
 import com.procurement.procurement.entity.procurement.PurchaseOrder;
-import com.procurement.procurement.entity.vendor.Vendor;
-import com.procurement.procurement.mapper.PurchaseOrderMapper;
-import com.procurement.procurement.repository.procurement.PurchaseOrderRepository;
-import com.procurement.procurement.repository.vendor.VendorRepository;
 import com.procurement.procurement.service.procurement.PurchaseOrderService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/procurement/purchase")
 public class PurchaseOrderController {
 
     private final PurchaseOrderService purchaseOrderService;
-    private final PurchaseOrderRepository purchaseOrderRepository;
 
-    public PurchaseOrderController(
-            PurchaseOrderService purchaseOrderService,
-            PurchaseOrderRepository purchaseOrderRepository
-    ) {
+    public PurchaseOrderController(PurchaseOrderService purchaseOrderService) {
         this.purchaseOrderService = purchaseOrderService;
-        this.purchaseOrderRepository = purchaseOrderRepository;
     }
 
-    // ✅ GET ALL PURCHASE ORDERS
-    @GetMapping("/all")
-    public List<PurchaseOrder> getAll() {
-        return purchaseOrderService.getAllPurchaseOrders();
-    }
-
-    // ✅ GET PURCHASE ORDER BY ID
-    @GetMapping("/{id}")
-    public PurchaseOrder getById(@PathVariable Long id) {
-        return purchaseOrderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Purchase Order not found"));
-    }
-
-    // ✅ UPDATE PURCHASE ORDER
-    @PutMapping("/update/{id}")
-    public PurchaseOrder update(
-            @PathVariable Long id,
-            @RequestBody PurchaseOrder po
+    // ===================== CREATE =====================
+    @PostMapping("/create")
+    public ResponseEntity<PurchaseOrder> createPurchase(
+            @RequestBody PurchaseOrder purchaseOrder
     ) {
-        return purchaseOrderService.updatePurchaseOrder(id, po);
+        PurchaseOrder saved = purchaseOrderService.createPurchaseOrder(purchaseOrder);
+        return ResponseEntity.ok(saved);
+    }
+
+    // ===================== GET ALL =====================
+    @GetMapping("/all")
+    public ResponseEntity<List<PurchaseOrder>> getAll() {
+        return ResponseEntity.ok(purchaseOrderService.getAllPurchaseOrders());
+    }
+
+    // ===================== GET BY ID =====================
+    @GetMapping("/{id}")
+    public ResponseEntity<PurchaseOrder> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(
+                purchaseOrderService.getPurchaseOrderById(id)
+        );
+    }
+
+    // ===================== UPDATE =====================
+    @PutMapping("/update/{id}")
+    public ResponseEntity<PurchaseOrder> update(
+            @PathVariable Long id,
+            @RequestBody PurchaseOrder purchaseOrder
+    ) {
+        return ResponseEntity.ok(
+                purchaseOrderService.updatePurchaseOrder(id, purchaseOrder)
+        );
+    }
+
+    // ===================== DELETE =====================
+    @DeleteMapping("/delete/{id}")
+    public ResponseEntity<String> delete(@PathVariable Long id) {
+        purchaseOrderService.deletePurchaseOrder(id);
+        return ResponseEntity.ok("Purchase Order deleted successfully");
     }
 }

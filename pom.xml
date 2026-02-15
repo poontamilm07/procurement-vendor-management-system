@@ -89,19 +89,20 @@
 			<version>2.2.0</version>
 		</dependency>
 
-		<!-- JasperReports -->
 		<dependency>
 			<groupId>net.sf.jasperreports</groupId>
 			<artifactId>jasperreports</artifactId>
-			<version>7.0.0</version>
+			<version>6.20.6</version>
 		</dependency>
 
-		<!-- JasperReports Fonts -->
 		<dependency>
 			<groupId>net.sf.jasperreports</groupId>
 			<artifactId>jasperreports-fonts</artifactId>
-			<version>7.0.0</version>
+			<version>6.20.6</version>
 		</dependency>
+
+
+
 
 		<!-- Apache POI (Excel Export) -->
 		<dependency>

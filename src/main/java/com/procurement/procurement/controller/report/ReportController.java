@@ -17,23 +17,26 @@ public class ReportController {
         this.reportService = reportService;
     }
 
-    @PostMapping(value = "/vendor", produces = MediaType.APPLICATION_PDF_VALUE)
+    @PostMapping("/vendor")
     public ResponseEntity<byte[]> generateVendorReport(
-            @RequestBody ReportRequestDTO request,
-            @RequestParam(defaultValue = "pdf") String format
-    ) {
+            @RequestBody(required = false) ReportRequestDTO request,
+            @RequestParam(defaultValue = "pdf") String format) {
+
         byte[] data = reportService.generateVendorReport(request, format);
+
+        String fileName = "vendor_report." +
+                (format.equalsIgnoreCase("excel") ? "xlsx" : "pdf");
+
+        MediaType mediaType =
+                format.equalsIgnoreCase("excel")
+                        ? MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                        : MediaType.APPLICATION_PDF;
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=vendor_report." +
-                                (format.equalsIgnoreCase("excel") ? "xlsx" : "pdf"))
-                .contentType(
-                        format.equalsIgnoreCase("excel")
-                                ? MediaType.parseMediaType(
-                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-                                : MediaType.APPLICATION_PDF
-                )
+                        "attachment; filename=" + fileName)
+                .contentType(mediaType)
                 .body(data);
     }
 }

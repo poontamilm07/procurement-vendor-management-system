@@ -1,6 +1,11 @@
 package com.procurement.procurement.service.report;
 
 import com.procurement.procurement.dto.report.ReportRequestDTO;
+import com.procurement.procurement.entity.procurement.PurchaseOrder;
+import com.procurement.procurement.entity.procurement.PurchaseOrderItem;
+import com.procurement.procurement.entity.vendor.Vendor;
+import com.procurement.procurement.repository.procurement.PurchaseOrderRepository;
+import com.procurement.procurement.repository.vendor.VendorRepository;
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
 import net.sf.jasperreports.engine.export.ooxml.JRXlsxExporter;
@@ -10,33 +15,32 @@ import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class ReportService {
 
-    // ===================== COMMON JASPER GENERATOR =====================
-    public JasperPrint generateReport(
-            String reportPath,
-            List<?> data,
-            Map<String, Object> parameters) throws JRException {
+    private final VendorRepository vendorRepository;
+    private final PurchaseOrderRepository purchaseOrderRepository;
 
-        if (data == null || data.isEmpty()) {
-            throw new JRException("No data available for report");
-        }
+    public ReportService(VendorRepository vendorRepository,
+                         PurchaseOrderRepository purchaseOrderRepository) {
+        this.vendorRepository = vendorRepository;
+        this.purchaseOrderRepository = purchaseOrderRepository;
+    }
+
+    private JasperPrint generateReport(String reportPath,
+                                       List<?> data,
+                                       Map<String, Object> parameters) throws JRException {
 
         JRBeanCollectionDataSource dataSource =
                 new JRBeanCollectionDataSource(data);
 
-        // Jasper requires mutable params
-        Map<String, Object> reportParams =
-                parameters != null ? new HashMap<>(parameters) : new HashMap<>();
+        InputStream reportStream =
+                getClass().getResourceAsStream(reportPath);
 
-        InputStream reportStream = getClass().getResourceAsStream(reportPath);
         if (reportStream == null) {
-            throw new JRException("JRXML not found at path: " + reportPath);
+            throw new RuntimeException("JRXML file not found at: " + reportPath);
         }
 
         JasperReport jasperReport =
@@ -44,74 +48,82 @@ public class ReportService {
 
         return JasperFillManager.fillReport(
                 jasperReport,
-                reportParams,
+                parameters,
                 dataSource
         );
     }
 
-    // ===================== EXPORT PDF =====================
-    public byte[] exportReportToPdf(JasperPrint jasperPrint)
-            throws JRException {
-
+    private byte[] exportPdf(JasperPrint jasperPrint) throws JRException {
         return JasperExportManager.exportReportToPdf(jasperPrint);
     }
 
-    // ===================== EXPORT EXCEL =====================
-    public byte[] exportReportToExcel(JasperPrint jasperPrint)
-            throws JRException {
+    private byte[] exportExcel(JasperPrint jasperPrint) throws JRException {
 
         JRXlsxExporter exporter = new JRXlsxExporter();
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
-        exporter.setExporterInput(
-                new SimpleExporterInput(jasperPrint)
-        );
+        exporter.setExporterInput(new SimpleExporterInput(jasperPrint));
         exporter.setExporterOutput(
                 new SimpleOutputStreamExporterOutput(outputStream)
         );
 
-        // ✅ Recommended Excel settings
-        exporter.setConfiguration(new net.sf.jasperreports.export.SimpleXlsxReportConfiguration() {{
-            setDetectCellType(true);
-            setCollapseRowSpan(false);
-            setWhitePageBackground(false);
-        }});
-
         exporter.exportReport();
+
         return outputStream.toByteArray();
     }
 
-    // ===================== VENDOR REPORT =====================
-    public byte[] generateVendorReport(
-            ReportRequestDTO request,
-            String format) {
+    public byte[] generateVendorReport(ReportRequestDTO request,
+                                       String format) {
 
         try {
-            // 🔹 TEMP DUMMY DATA (safe for testing)
-            List<Map<String, Object>> data = List.of(
-                    Map.of("vendorName", "ABC Traders", "rating", 4.5, "status", "ACTIVE"),
-                    Map.of("vendorName", "XYZ Supplies", "rating", 4.2, "status", "ACTIVE")
-            );
+
+            List<Vendor> vendors = vendorRepository.findAll();
+            List<Map<String, Object>> reportData = new ArrayList<>();
+
+            for (Vendor vendor : vendors) {
+
+                List<PurchaseOrder> orders =
+                        purchaseOrderRepository.findByVendor(vendor);
+
+                for (PurchaseOrder po : orders) {
+
+                    for (PurchaseOrderItem item : po.getItems()) {
+
+                        Map<String, Object> row = new HashMap<>();
+
+                        row.put("vendorName", vendor.getName());
+                        row.put("poNumber", po.getPoNumber());
+                        row.put("status", po.getStatus());
+                        row.put("productName", item.getProductName());
+                        row.put("quantity", item.getQuantity());
+                        row.put("unitPrice", item.getUnitPrice());
+                        row.put("total",
+                                item.getQuantity() * item.getUnitPrice());
+
+                        reportData.add(row);
+                    }
+                }
+            }
 
             Map<String, Object> params = new HashMap<>();
-            params.put("title", "Vendor Report");
+            params.put("title", "Vendor Purchase Report");
 
             JasperPrint jasperPrint = generateReport(
                     "/jasper/vendor_report.jrxml",
-                    data,
+                    reportData,
                     params
             );
 
             if ("excel".equalsIgnoreCase(format)) {
-                return exportReportToExcel(jasperPrint);
+                return exportExcel(jasperPrint);
             }
 
-            return exportReportToPdf(jasperPrint);
+            return exportPdf(jasperPrint);
 
         } catch (Exception e) {
-            // 🔥 SHOW REAL ERROR IN LOGS
             e.printStackTrace();
-            throw new RuntimeException("Report generation failed: " + e.getMessage());
+            throw new RuntimeException(
+                    "Report generation failed: " + e.getMessage());
         }
     }
 }
